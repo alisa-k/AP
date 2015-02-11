@@ -1,0 +1,1070 @@
+From b4390d77e8c2d558624a2d4a5cd396cfb7bfdd37 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Fri, 26 Sep 2014 22:05:43 -0400
+Subject: [PATCH 01/11] Implemented duplicateArgs function in twecho; wrote
+ Makefile.
+
+---
+ part2/Makefile |   36 ++++++++++++++++++++++++++++++++++++
+ part2/twecho.c |   18 ++++++++++++++++++
+ 2 files changed, 54 insertions(+)
+ create mode 100644 part2/Makefile
+
+diff --git a/part2/Makefile b/part2/Makefile
+new file mode 100644
+index 0000000..3cb3f68
+--- /dev/null
++++ b/part2/Makefile
+@@ -0,0 +1,36 @@
++# gcc for C compilation
++
++CC  = gcc
++
++# Compilation options:
++
++CFLAGS   = -g -Wall
++
++# Linking options:
++
++LDFLAGS = -g
++
++# Target: executable named specified
++
++TARGET = twecho
++
++# Linking rules
++
++$(TARGET): twecho.o
++	$(CC) $(LDFLAGS) twecho.o -o $(TARGET) 
++
++# Compilation rules
++
++twecho.o: twecho.c
++	$(CC) -c $(CFLAGS) twecho.c
++
++# "clean" target
++
++.PHONY: clean
++clean:
++	rm -f *.o a.out core $(TARGET)
++
++# "all" target
++
++.PHONY: all
++all: clean $(TARGET)
+diff --git a/part2/twecho.c b/part2/twecho.c
+index c70e975..e5a9ff4 100644
+--- a/part2/twecho.c
++++ b/part2/twecho.c
+@@ -9,7 +9,25 @@
+ 
+ static char **duplicateArgs(int argc, char **argv)
+ {
++    int i;
++    int j;
++    char **copy;
+ 
++    copy = (char **) malloc((argc + 1) * sizeof(char *));
++
++        for (i = 0; i < argc; i++)
++        {
++            copy[i] = (char *) malloc((strlen(argv[i]) + 1) * sizeof(char));
++
++            for (j = 0; j < strlen(argv[i]); j++)
++            {
++                 copy[i][j] = toupper(argv[i][j]);
++            }
++            copy[i][j] = '\0';
++        }
++        copy[argc] = NULL;
++
++    return copy;
+ }
+ 
+ static void freeDuplicatedArgs(char **copy)
+-- 
+1.7.9.5
+
+
+From c5b37b1345b56bf5dbaab178654f5278831f0f88 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Fri, 26 Sep 2014 22:15:44 -0400
+Subject: [PATCH 02/11] Implemented freeDuplicatedArgs function in twecho.c
+
+---
+ part2/twecho.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/part2/twecho.c b/part2/twecho.c
+index e5a9ff4..f932f8b 100644
+--- a/part2/twecho.c
++++ b/part2/twecho.c
+@@ -32,7 +32,14 @@ static char **duplicateArgs(int argc, char **argv)
+ 
+ static void freeDuplicatedArgs(char **copy)
+ {
++    int i = 0;
+ 
++    while (copy[i])
++    {
++        free(copy[i++]);
++    }
++
++    free(copy);
+ }
+ 
+ /*
+-- 
+1.7.9.5
+
+
+From dc00e923ead219bd99867b7cdc7bdb1fc39f87e8 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Fri, 26 Sep 2014 22:31:04 -0400
+Subject: [PATCH 03/11] Added comments in twecho.c
+
+---
+ part2/twecho.c |   32 ++++++++++++++++++++++----------
+ 1 file changed, 22 insertions(+), 10 deletions(-)
+
+diff --git a/part2/twecho.c b/part2/twecho.c
+index f932f8b..0a4236f 100644
+--- a/part2/twecho.c
++++ b/part2/twecho.c
+@@ -1,5 +1,8 @@
+ /*
+  * twecho
++ * CS 3157 Lab #2
++ * Due: 9/29/14
++ * Alisa Krivokapic (ak3533)
+  */
+ 
+ #include <stdio.h>
+@@ -7,29 +10,38 @@
+ #include <string.h>
+ #include <ctype.h>
+ 
++/*
++ * Creates a copy of the argv array with all-caps version of each argument.
++ */
+ static char **duplicateArgs(int argc, char **argv)
+ {
+     int i;
+     int j;
+     char **copy;
+-
++    
++    // Allocate memory for the array of strings
+     copy = (char **) malloc((argc + 1) * sizeof(char *));
+ 
+-        for (i = 0; i < argc; i++)
+-        {
+-            copy[i] = (char *) malloc((strlen(argv[i]) + 1) * sizeof(char));
++    for (i = 0; i < argc; i++)
++    {
++        // Allocate memory for each string
++        copy[i] = (char *) malloc((strlen(argv[i]) + 1) * sizeof(char));
+ 
+-            for (j = 0; j < strlen(argv[i]); j++)
+-            {
+-                 copy[i][j] = toupper(argv[i][j]);
+-            }
+-            copy[i][j] = '\0';
++        for (j = 0; j < strlen(argv[i]); j++)
++        {
++           // Capitalize each character of current string
++           copy[i][j] = toupper(argv[i][j]);
+         }
+-        copy[argc] = NULL;
++        copy[i][j] = '\0'; // last element of a char array is a null character
++    }
++    copy[argc] = NULL; // required by standard to be a null pointer
+ 
+     return copy;
+ }
+ 
++/*
++ * Frees memory we allocated in duplicateArgs function
++ */
+ static void freeDuplicatedArgs(char **copy)
+ {
+     int i = 0;
+-- 
+1.7.9.5
+
+
+From b6716129c919259d9dc661e7f2f1eae370e1c903 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Fri, 26 Sep 2014 22:41:49 -0400
+Subject: [PATCH 04/11] Added comments for freeDuplicatedArgs function
+
+---
+ part2/twecho.c |   12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/part2/twecho.c b/part2/twecho.c
+index 0a4236f..85615e9 100644
+--- a/part2/twecho.c
++++ b/part2/twecho.c
+@@ -19,17 +19,17 @@ static char **duplicateArgs(int argc, char **argv)
+     int j;
+     char **copy;
+     
+-    // Allocate memory for the array of strings
++    // allocate memory for the array of strings
+     copy = (char **) malloc((argc + 1) * sizeof(char *));
+ 
+     for (i = 0; i < argc; i++)
+     {
+-        // Allocate memory for each string
++        // allocate memory for each string
+         copy[i] = (char *) malloc((strlen(argv[i]) + 1) * sizeof(char));
+ 
+         for (j = 0; j < strlen(argv[i]); j++)
+         {
+-           // Capitalize each character of current string
++           // capitalize each character of current string
+            copy[i][j] = toupper(argv[i][j]);
+         }
+         copy[i][j] = '\0'; // last element of a char array is a null character
+@@ -45,12 +45,14 @@ static char **duplicateArgs(int argc, char **argv)
+ static void freeDuplicatedArgs(char **copy)
+ {
+     int i = 0;
+-
++    
++    // free memory allocated for each string
+     while (copy[i])
+     {
+         free(copy[i++]);
+     }
+-
++    
++    // free array of pointers
+     free(copy);
+ }
+ 
+-- 
+1.7.9.5
+
+
+From 40cbd5a9ad54eec4fc5482eef459411a3d1e0f47 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Fri, 26 Sep 2014 23:00:34 -0400
+Subject: [PATCH 05/11] Forgot to check for return value of malloc() in
+ duplicateArgs function in previous versions
+
+---
+ part2/twecho.c |   14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/part2/twecho.c b/part2/twecho.c
+index 85615e9..72c54f8 100644
+--- a/part2/twecho.c
++++ b/part2/twecho.c
+@@ -21,11 +21,25 @@ static char **duplicateArgs(int argc, char **argv)
+     
+     // allocate memory for the array of strings
+     copy = (char **) malloc((argc + 1) * sizeof(char *));
++    
++    // check return value of malloc()
++    if (copy == NULL)
++    {
++        perror("malloc returned NULL");
++        exit(1);
++    }
+ 
+     for (i = 0; i < argc; i++)
+     {
+         // allocate memory for each string
+         copy[i] = (char *) malloc((strlen(argv[i]) + 1) * sizeof(char));
++        
++        // check return value of malloc()
++        if (copy[i] == NULL)
++        {
++            perror("malloc returned NULL");
++            exit(1);
++        }
+ 
+         for (j = 0; j < strlen(argv[i]); j++)
+         {
+-- 
+1.7.9.5
+
+
+From 7755bac87b3f705736b64a51d4fcb72d70501a19 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Fri, 26 Sep 2014 23:54:38 -0400
+Subject: [PATCH 06/11] Implemented createRandomArray, printArray functions to
+ main.c and added Makefile
+
+---
+ part1/Makefile |   36 ++++++++++++++++++++++++++++++++++
+ part1/main.c   |   59 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 95 insertions(+)
+ create mode 100644 part1/Makefile
+ create mode 100644 part1/main.c
+
+diff --git a/part1/Makefile b/part1/Makefile
+new file mode 100644
+index 0000000..03debe3
+--- /dev/null
++++ b/part1/Makefile
+@@ -0,0 +1,36 @@
++# gcc for C compilation
++
++CC  = gcc
++
++# Compilation options:
++
++CFLAGS   = -g -Wall
++
++# Linking options:
++
++LDFLAGS = -g
++
++# Target: executable named specified
++
++TARGET = isort
++
++# Linking rules
++
++$(TARGET): main.o
++	$(CC) $(LDFLAGS) main.o -o $(TARGET) 
++
++# Compilation rules
++
++main.o: main.c
++	$(CC) -c $(CFLAGS) main.c
++
++# "clean" target
++
++.PHONY: clean
++clean:
++	rm -f *.o a.out core $(TARGET)
++
++# "all" target
++
++.PHONY: all
++all: clean $(TARGET)
+diff --git a/part1/main.c b/part1/main.c
+new file mode 100644
+index 0000000..bf54bef
+--- /dev/null
++++ b/part1/main.c
+@@ -0,0 +1,59 @@
++#include <stdio.h>
++#include <stdlib.h>
++#include <time.h>
++
++void printArray(int *, int);
++int *createRandomArray(int);
++
++int main()
++{
++    int size; 
++    int *origArray;
++    srandom(time(NULL));
++    
++    printf("\nPlease enter size of array: ");
++    scanf("%d", &size);
++    
++    origArray = createRandomArray(size);
++
++    printArray(origArray, size);
++    
++    free(origArray);
++
++    return 0;
++}
++
++int *createRandomArray(int size)
++{
++    int i;
++    int *array;
++
++    // dynamically allocate array of ints
++    array = (int *) malloc(size * sizeof(int));
++            
++    // check return value of malloc()
++    if (array == NULL)
++    {   
++        perror("malloc returned NULL");
++        exit(1);
++    }   
++                                                        
++    for (i = 0; i < size; i++)
++    {   
++        array[i] = random()%1000;
++    }
++
++    return array;
++}
++
++void printArray(int *array, int size)
++{
++    int i;
++
++    for (i = 0; i < size; i++)
++    {
++        printf("%d ", array[i]);
++    }
++    printf("\n");
++}
++
+-- 
+1.7.9.5
+
+
+From ec6cfcbd9219a3acf9a156a2c4cc1d98579d57bf Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Sat, 27 Sep 2014 22:10:52 -0400
+Subject: [PATCH 07/11] Fixed one of the comments in twecho.c
+
+---
+ part2/twecho.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/part2/twecho.c b/part2/twecho.c
+index 72c54f8..68a7433 100644
+--- a/part2/twecho.c
++++ b/part2/twecho.c
+@@ -19,7 +19,7 @@ static char **duplicateArgs(int argc, char **argv)
+     int j;
+     char **copy;
+     
+-    // allocate memory for the array of strings
++    // allocate memory for the array of char pointers
+     copy = (char **) malloc((argc + 1) * sizeof(char *));
+     
+     // check return value of malloc()
+-- 
+1.7.9.5
+
+
+From 15ad2dd7a7140b742fb662b16f22c343caff13e1 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Sat, 27 Sep 2014 23:20:38 -0400
+Subject: [PATCH 08/11] Renamed main.c to sort.c. Implemented copy and sort
+ functions. Changed Makefile.
+
+---
+ part1/Makefile |    8 ++--
+ part1/main.c   |   59 ---------------------------
+ part1/sort.c   |  121 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 125 insertions(+), 63 deletions(-)
+ delete mode 100644 part1/main.c
+ create mode 100644 part1/sort.c
+
+diff --git a/part1/Makefile b/part1/Makefile
+index 03debe3..3f7ce7e 100644
+--- a/part1/Makefile
++++ b/part1/Makefile
+@@ -16,13 +16,13 @@ TARGET = isort
+ 
+ # Linking rules
+ 
+-$(TARGET): main.o
+-	$(CC) $(LDFLAGS) main.o -o $(TARGET) 
++$(TARGET): sort.o
++	$(CC) $(LDFLAGS) sort.o -o $(TARGET) 
+ 
+ # Compilation rules
+ 
+-main.o: main.c
+-	$(CC) -c $(CFLAGS) main.c
++sort.o: sort.c
++	$(CC) -c $(CFLAGS) sort.c
+ 
+ # "clean" target
+ 
+diff --git a/part1/main.c b/part1/main.c
+deleted file mode 100644
+index bf54bef..0000000
+--- a/part1/main.c
++++ /dev/null
+@@ -1,59 +0,0 @@
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <time.h>
+-
+-void printArray(int *, int);
+-int *createRandomArray(int);
+-
+-int main()
+-{
+-    int size; 
+-    int *origArray;
+-    srandom(time(NULL));
+-    
+-    printf("\nPlease enter size of array: ");
+-    scanf("%d", &size);
+-    
+-    origArray = createRandomArray(size);
+-
+-    printArray(origArray, size);
+-    
+-    free(origArray);
+-
+-    return 0;
+-}
+-
+-int *createRandomArray(int size)
+-{
+-    int i;
+-    int *array;
+-
+-    // dynamically allocate array of ints
+-    array = (int *) malloc(size * sizeof(int));
+-            
+-    // check return value of malloc()
+-    if (array == NULL)
+-    {   
+-        perror("malloc returned NULL");
+-        exit(1);
+-    }   
+-                                                        
+-    for (i = 0; i < size; i++)
+-    {   
+-        array[i] = random()%1000;
+-    }
+-
+-    return array;
+-}
+-
+-void printArray(int *array, int size)
+-{
+-    int i;
+-
+-    for (i = 0; i < size; i++)
+-    {
+-        printf("%d ", array[i]);
+-    }
+-    printf("\n");
+-}
+-
+diff --git a/part1/sort.c b/part1/sort.c
+new file mode 100644
+index 0000000..960f0f2
+--- /dev/null
++++ b/part1/sort.c
+@@ -0,0 +1,121 @@
++#include <stdio.h>
++#include <stdlib.h>
++#include <time.h>
++
++int *createRandomArray(int);
++int *copyArray(int *, int);
++int cmpfuncAscending(const void *, const void *);
++int cmpfuncDescending(const void *, const void *);
++void sort_integer_array(int *, int *, int);
++void printArray(int *, int);
++
++int main()
++{
++    int size; 
++    int *origArray;
++    int *ascArray;
++    int *descArray;
++    srandom(time(NULL));
++    
++    printf("\nPlease enter size of array: ");
++    scanf("%d", &size);
++    
++    origArray = createRandomArray(size);
++    ascArray = copyArray(origArray, size);
++    descArray = copyArray(origArray, size);
++    
++    sort_integer_array(ascArray, ascArray + size - 1, 1);
++    sort_integer_array(descArray, descArray + size - 1, 0);
++    
++    printArray(origArray, size);
++    printArray(ascArray, size);
++    printArray(descArray, size);
++
++    free(origArray);
++    free(ascArray);
++    free(descArray);
++
++    return 0;
++}
++
++int *createRandomArray(int size)
++{
++    int i;
++    int *array;
++
++    // dynamically allocate array of ints
++    array = (int *) malloc(size * sizeof(int));
++            
++    // check return value of malloc()
++    if (array == NULL)
++    {   
++        perror("malloc returned NULL");
++        exit(1);
++    }   
++                                                        
++    for (i = 0; i < size; i++)
++    {   
++        array[i] = random()%1000;
++    }
++
++    return array;
++}
++
++int *copyArray(int *array, int size)
++{
++    int i;
++    int *copy;
++
++    copy = (int *) malloc(size * sizeof(int));
++
++    // check return value of malloc()
++    if (copy == NULL)
++    {
++        perror("malloc returned NULL");
++        exit(1);
++    }
++
++    for (i = 0; i < size; i++)
++    {
++        copy[i] = array[i];
++    }
++
++    return copy;
++}
++
++int cmpfuncAscending(const void *a, const void *b)
++{
++    if ( *((int *)a) < *((int *)b))
++        return -1;
++    else if (*((int *)a) > *((int *)b))
++        return 1;
++    else
++        return 0;
++}
++
++int cmpfuncDescending(const void *a, const void *b)
++{
++    return -(cmpfuncAscending(a, b));
++}
++
++void sort_integer_array(int *begin, int *end, int ascending)
++{
++    if (ascending == 1)
++        qsort(begin, end - begin + 1, sizeof(int), cmpfuncAscending);
++    else if (ascending == 0)
++        qsort(begin, end - begin + 1, sizeof(int), cmpfuncDescending);
++    else
++        printf("\nerror.\n");
++}
++
++void printArray(int *array, int size)
++{
++    int i;
++
++    for (i = 0; i < size; i++)
++    {
++        printf("%d ", array[i]);
++    }
++    printf("\n");
++}
++
+-- 
+1.7.9.5
+
+
+From 376c87a681dafb9e267225190345d77b1ada7a92 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Sat, 27 Sep 2014 23:34:00 -0400
+Subject: [PATCH 09/11] Created sort.h, edited sort.c and Makefile to include
+ this change
+
+---
+ part1/Makefile |    2 +-
+ part1/sort.c   |   13 +++++--------
+ part1/sort.h   |    6 ++++++
+ 3 files changed, 12 insertions(+), 9 deletions(-)
+ create mode 100644 part1/sort.h
+
+diff --git a/part1/Makefile b/part1/Makefile
+index 3f7ce7e..9080feb 100644
+--- a/part1/Makefile
++++ b/part1/Makefile
+@@ -21,7 +21,7 @@ $(TARGET): sort.o
+ 
+ # Compilation rules
+ 
+-sort.o: sort.c
++sort.o: sort.c sort.h
+ 	$(CC) -c $(CFLAGS) sort.c
+ 
+ # "clean" target
+diff --git a/part1/sort.c b/part1/sort.c
+index 960f0f2..c71ca6b 100644
+--- a/part1/sort.c
++++ b/part1/sort.c
+@@ -1,13 +1,7 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <time.h>
+-
+-int *createRandomArray(int);
+-int *copyArray(int *, int);
+-int cmpfuncAscending(const void *, const void *);
+-int cmpfuncDescending(const void *, const void *);
+-void sort_integer_array(int *, int *, int);
+-void printArray(int *, int);
++#include "sort.h"
+ 
+ int main()
+ {
+@@ -27,8 +21,11 @@ int main()
+     sort_integer_array(ascArray, ascArray + size - 1, 1);
+     sort_integer_array(descArray, descArray + size - 1, 0);
+     
++    printf("\nOriginal Array:\n");
+     printArray(origArray, size);
++    printf("Ascending Array:\n");
+     printArray(ascArray, size);
++    printf("Descending Array:\n");
+     printArray(descArray, size);
+ 
+     free(origArray);
+@@ -116,6 +113,6 @@ void printArray(int *array, int size)
+     {
+         printf("%d ", array[i]);
+     }
+-    printf("\n");
++    printf("\n\n");
+ }
+ 
+diff --git a/part1/sort.h b/part1/sort.h
+new file mode 100644
+index 0000000..29f1469
+--- /dev/null
++++ b/part1/sort.h
+@@ -0,0 +1,6 @@
++int *createRandomArray(int);
++int *copyArray(int *, int);
++int cmpfuncAscending(const void *, const void *); 
++int cmpfuncDescending(const void *, const void *); 
++void sort_integer_array(int *, int *, int);
++void printArray(int *, int);
+-- 
+1.7.9.5
+
+
+From c103258ee63af2a4e3d06f19c73fdecc3fee9819 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Sun, 28 Sep 2014 00:19:01 -0400
+Subject: [PATCH 10/11] Added more comments to sort.c, edited sort.h
+
+---
+ part1/sort.c |   52 ++++++++++++++++++++++++++++++++++++++++++++++++----
+ part1/sort.h |    5 +++++
+ 2 files changed, 53 insertions(+), 4 deletions(-)
+
+diff --git a/part1/sort.c b/part1/sort.c
+index c71ca6b..c100775 100644
+--- a/part1/sort.c
++++ b/part1/sort.c
+@@ -1,26 +1,41 @@
++/*
++ * isort
++ * CS 3157 Lab #2
++ * Due: 9/29/14
++ * Alisa Krivokapic (ak3533)
++ */
++
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <time.h>
+ #include "sort.h"
+ 
++/*
++ * Main function
++ */
+ int main()
+ {
+     int size; 
+     int *origArray;
+     int *ascArray;
+     int *descArray;
++
++    // seed the random number generator with the current time in seconds
+     srandom(time(NULL));
+     
+-    printf("\nPlease enter size of array: ");
++    printf("\nPlease enter the size of array: ");
+     scanf("%d", &size);
+     
++    // create array of random ints and copy it to two additional arrays
+     origArray = createRandomArray(size);
+     ascArray = copyArray(origArray, size);
+     descArray = copyArray(origArray, size);
+     
++    // sort ascArray in ascending order and descArray in descending order 
+     sort_integer_array(ascArray, ascArray + size - 1, 1);
+     sort_integer_array(descArray, descArray + size - 1, 0);
+     
++    // display all 3 arrays
+     printf("\nOriginal Array:\n");
+     printArray(origArray, size);
+     printf("Ascending Array:\n");
+@@ -28,6 +43,7 @@ int main()
+     printf("Descending Array:\n");
+     printArray(descArray, size);
+ 
++    // free the memory allocated for the arrays
+     free(origArray);
+     free(ascArray);
+     free(descArray);
+@@ -35,6 +51,11 @@ int main()
+     return 0;
+ }
+ 
++/*
++ * Dynamically creates an array of integers and assigns it random values
++ * Returns pointer to the created array 
++ * The calling function is responsible for freeing the allocated memory
++ */
+ int *createRandomArray(int size)
+ {
+     int i;
+@@ -49,7 +70,8 @@ int *createRandomArray(int size)
+         perror("malloc returned NULL");
+         exit(1);
+     }   
+-                                                        
++                
++    // fill the array with random integers
+     for (i = 0; i < size; i++)
+     {   
+         array[i] = random()%1000;
+@@ -58,11 +80,17 @@ int *createRandomArray(int size)
+     return array;
+ }
+ 
++/*
++ * Copies input array into new allocated array
++ * Returns a pointer to that array
++ * The calling function is responsible for freeing the allocated memory
++ */
+ int *copyArray(int *array, int size)
+ {
+     int i;
+     int *copy;
+-
++    
++    // dynamically allocate array of integers 
+     copy = (int *) malloc(size * sizeof(int));
+ 
+     // check return value of malloc()
+@@ -72,6 +100,7 @@ int *copyArray(int *array, int size)
+         exit(1);
+     }
+ 
++    // copy the values of the original array
+     for (i = 0; i < size; i++)
+     {
+         copy[i] = array[i];
+@@ -80,6 +109,10 @@ int *copyArray(int *array, int size)
+     return copy;
+ }
+ 
++/*
++ * Ascending comparison function passed assigned
++ * to qsort()'s pointer function argument
++ */
+ int cmpfuncAscending(const void *a, const void *b)
+ {
+     if ( *((int *)a) < *((int *)b))
+@@ -90,11 +123,19 @@ int cmpfuncAscending(const void *a, const void *b)
+         return 0;
+ }
+ 
++/*
++ * Descending comparison function passed assigned
++ * to qsort()'s pointer function argument
++ */
+ int cmpfuncDescending(const void *a, const void *b)
+ {
+     return -(cmpfuncAscending(a, b));
+ }
+ 
++/*
++ * Sorts an array of integers in either ascending or 
++ * descending order. 
++ */
+ void sort_integer_array(int *begin, int *end, int ascending)
+ {
+     if (ascending == 1)
+@@ -102,9 +143,12 @@ void sort_integer_array(int *begin, int *end, int ascending)
+     else if (ascending == 0)
+         qsort(begin, end - begin + 1, sizeof(int), cmpfuncDescending);
+     else
+-        printf("\nerror.\n");
++        printf("\nError.\n");
+ }
+ 
++/*
++ * Prints array of integers
++ */
+ void printArray(int *array, int size)
+ {
+     int i;
+diff --git a/part1/sort.h b/part1/sort.h
+index 29f1469..c3737e4 100644
+--- a/part1/sort.h
++++ b/part1/sort.h
+@@ -1,6 +1,11 @@
++#ifndef __SORT_H__
++#define __SORT_H__
++
+ int *createRandomArray(int);
+ int *copyArray(int *, int);
+ int cmpfuncAscending(const void *, const void *); 
+ int cmpfuncDescending(const void *, const void *); 
+ void sort_integer_array(int *, int *, int);
+ void printArray(int *, int);
++
++#endif
+-- 
+1.7.9.5
+
+
+From b2708c1ef1bd34f6a2b459d4c0f3739f46f81e84 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Sun, 28 Sep 2014 01:28:07 -0400
+Subject: [PATCH 11/11] Edited README.txt
+
+---
+ README.txt |  117 ++++++++++++++++++++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 106 insertions(+), 11 deletions(-)
+
+diff --git a/README.txt b/README.txt
+index 66dfd3e..a13e5eb 100644
+--- a/README.txt
++++ b/README.txt
+@@ -1,11 +1,106 @@
+-This file should contain:
+-
+-  - your name
+-  - your UNI
+-  - lab assignment number
+-  - description for each part
+-  
+-The description should indicate whether your solution for the part is
+-working or not.  You may also want to include anything else you would
+-like to communicate to the grader such as extra functionalities you
+-implemented or how you tried to fix your non-working code.
++/*************************************************************************
++ ***  Alisa Krivokapic
++ ***  UNI: ak3533
++ ***  CS3157 Lab 2
++ ***  9-29-2014
++ *************************************************************************/
++ 
++***************************************************************************
++                                    PART 1
++***************************************************************************
++
++isort is a C program that:
++- gets size of array from user
++- creates array of integers by dynamically allocating it & filling it
++  with randomly generated integer values using the C random() function
++- makes a copy of the array and sorts it in ascending order 
++- makes a second copy of the array and sorts it in descending order
++- prints all arrays (original array, ascending array, descending array)
++
++Solution Details: everything works as expected. 
++
++* sort.c   : - implemented createArray() function that creates original
++               array and assigns it random integer values
++             - implemented copyArray() function which creates a copy
++               of the array passed in
++             - calling function frees allocated memory for copyArray()
++               and createArray() functions
++             - used the qsort() C library function to sort the arrays 
++               in ascending and descending order. 
++               (read section 5.11 in K&R about pointers to functions)
++               implemented comparison functions cmpfuncAscending() and
++               cmpfuncDescending() to be used for qsort()
++
++* Makefile : - modified the template provided by professor Jae Lee
++             - introduced a make variable TARGET & assigned the name
++               of the program to it (isort)
++
++* valgrind : 
++
++==21528== Memcheck, a memory error detector
++==21528== Copyright (C) 2002-2011, and GNU GPL'd, by Julian Seward et al. 
++==21528== Using Valgrind-3.7.0 and LibVEX; rerun with -h for copyright info
++==21528== Command: ./isort
++==21528== 
++
++Please enter the size of array: 
++Original Array:
++813 243 893 834 62  
++
++Ascending Array:
++62 243 813 834 893 
++
++Descending Array:
++893 834 813 243 62  
++
++==21528== 
++==21528== HEAP SUMMARY:
++==21528==     in use at exit: 0 bytes in 0 blocks
++==21528==   total heap usage: 3 allocs, 3 frees, 60 bytes allocated
++==21528== 
++==21528== All heap blocks were freed -- no leaks are possible
++==21528== 
++==21528== For counts of detected and suppressed errors, rerun with: -v
++==21528== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 2 from 2)
++
++***************************************************************************
++                                    PART 2
++***************************************************************************
++
++twecho is a C program that:
++- takes words as command line arguments and prints each word twice : 
++- once as is, and once all capitalized.
++
++Solution Details: everything works as expected.
++
++* twecho.c : - implemented duplicateArgs() function that makes a copy
++               of the memory structure shown in the K&R book on p.115
++               created array of char pointers using malloc() and then 
++               called malloc() for each element of that array to
++               allocate the memory for the individual strings
++             - implemented freeDuplicatedArgs() to free all of the 
++               previously dynamically allocated memory
++
++* Makefile : - modified the template provided by professor Jae Lee 
++             - introduced a make variable TARGET & assigned the name
++               of the program to it (twecho)
++
++* valgrind :
++
++==22030== Memcheck, a memory error detector
++==22030== Copyright (C) 2002-2011, and GNU GPL'd, by Julian Seward et al.
++==22030== Using Valgrind-3.7.0 and LibVEX; rerun with -h for copyright info
++==22030== Command: ./twecho hello world alisa
++==22030== 
++hello HELLO
++world WORLD
++alisa ALISA
++==22030== 
++==22030== HEAP SUMMARY:
++==22030==     in use at exit: 0 bytes in 0 blocks
++==22030==   total heap usage: 5 allocs, 5 frees, 67 bytes allocated
++==22030== 
++==22030== All heap blocks were freed -- no leaks are possible
++==22030== 
++==22030== For counts of detected and suppressed errors, rerun with: -v
++==22030== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 2 from 2)
+-- 
+1.7.9.5
+

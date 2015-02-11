@@ -1,0 +1,1005 @@
+From 03255584a9e6ed0b24ff9bb051be97dd3ace9df3 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Tue, 30 Sep 2014 12:04:23 -0400
+Subject: [PATCH 1/7] Created mylist.c and implemented addNode, traverseList,
+ flipSignDouble, and compareDouble functions
+
+---
+ part1/mylist.c |   66 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 66 insertions(+)
+ create mode 100644 part1/mylist.c
+
+diff --git a/part1/mylist.c b/part1/mylist.c
+new file mode 100644
+index 0000000..82aff0a
+--- /dev/null
++++ b/part1/mylist.c
+@@ -0,0 +1,66 @@
++#include <stdio.h>
++#include "mylist.h"
++
++struct Node *addFront(struct List *list, void *data)
++{
++    struct Node *pn;
++
++    if (list == NULL)
++    {
++        printf("Error: Pointer to the list is a NULL pointer\n");
++        return NULL;
++    }
++
++    pn = (struct Node *)malloc(sizeof(struct Node));
++
++    // check return value of malloc()
++    if (pn == NULL)
++    {
++        printf("malloc returned NULL.\n");
++        return pn;
++    }
++
++    pn->data = data;
++    pn->next = list->head;
++    list->head = pn;
++
++    return pn;
++}
++
++void traverseList(struct List *list, void (*f)(void *))
++{
++    struct Node *pn;
++
++    if (list == NULL)
++    {
++        printf("Error: Pointer to the list is a NULL pointer\n");
++        return;
++    }
++    
++    if (isEmptyList(list))
++        return;
++
++    pn = list->head;
++
++    while (pn != NULL)
++    {
++        f(pn->data);
++        pn = pn->next;
++    }   
++}
++
++void flipSignDouble(void *data)
++{
++    *(double *)data = -1 * (*(double *)data);
++
++}
++
++int compareDouble(const void *data1, const void *data2)
++{
++    if (*(double *)data1 == *(double *)data2)
++        return 0;
++    return 1;
++}
++    
++
++
+-- 
+1.7.9.5
+
+
+From d0522f01ba285310f2daf5f5a226c7482ae3fb7a Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Tue, 30 Sep 2014 12:45:33 -0400
+Subject: [PATCH 2/7] Implemented findNode and popFront functions in mylist.c
+
+---
+ part1/mylist.c |   55 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 55 insertions(+)
+
+diff --git a/part1/mylist.c b/part1/mylist.c
+index 82aff0a..4c61911 100644
+--- a/part1/mylist.c
++++ b/part1/mylist.c
+@@ -61,6 +61,61 @@ int compareDouble(const void *data1, const void *data2)
+         return 0;
+     return 1;
+ }
++
++struct Node *findNode(struct List *list, const void *dataSought, int(* compar)(const void *, const void *))
++{
++    struct Node *pn;
++
++    if (list == NULL)
++    {
++       printf("Error: Pointer to the list is a NULL pointer\n");
++        return NULL;
++    }
++
++    if (isEmptyList(list))
++        return NULL;
++
++    pn = list->head;
++
++    // traverse list and compare each node's data to dataSought
++    while (pn != NULL)
++    {
++        if (compareDouble(pn->data, dataSought)
++        return pn;
++       else
++           pn = pn->next;
++   }
++   return NULL;
++}
++
++void *popFront(struct List *list)
++{
++    struct Node *pn;
++    void *saveNodeData;
++
++    // assign address of node we're popping to pn
++    pn = list->head;
++
++    // save the data from the element we're popping
++    saveNodeData = pn->data;
+     
++    // now that we've saved what we need, we can assign the new
++    // list head
++    list->head = pn->next;
++
++    // now that we have a new list head we can deallocate
++    // the memory by freeing pn
++    free(pn);
++
++    // and finally, return the data from the original first Node
++    return saveNodeData;
++}
++
++
++
++
++
++
++
+ 
+ 
+-- 
+1.7.9.5
+
+
+From b4b877751adea23191f092511a3634ec9663b9d2 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Wed, 1 Oct 2014 22:08:00 -0400
+Subject: [PATCH 3/7] Fixed reverseList() added Makefile and partially
+ completed README.txt
+
+---
+ README.txt     |   59 ++++++++++++++----
+ part1/Makefile |   36 +++++++++++
+ part1/mylist.c |  181 +++++++++++++++++++++++++++++++++++++++++++++-----------
+ 3 files changed, 232 insertions(+), 44 deletions(-)
+ create mode 100644 part1/Makefile
+
+diff --git a/README.txt b/README.txt
+index 66dfd3e..892c6bb 100644
+--- a/README.txt
++++ b/README.txt
+@@ -1,11 +1,48 @@
+-This file should contain:
+-
+-  - your name
+-  - your UNI
+-  - lab assignment number
+-  - description for each part
+-  
+-The description should indicate whether your solution for the part is
+-working or not.  You may also want to include anything else you would
+-like to communicate to the grader such as extra functionalities you
+-implemented or how you tried to fix your non-working code.
++/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
++//                                                                                                                  
++// Alisa Krivokapic
++// UNI: ak3533
++// W3157, lab #3, October 3, 2014
++//
++//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
++
++
++
++//
++//  Part1 requirements:
++//                          a) implement a generic singly linked list that can hold any data type
++//                            * the interface is provided in a header file mylist.h
++//                            * test driver program is provided with mylist-test.c
++//                            * produces the output that matches the one in provided text file mylist-test-output.txt'
++//                            * Makefile to build mylist-test
++//                            * valgrind output has to be included in README.txt
++//                              
++//                          b) modify Makefile to produce a static library libmylist.a and test program must link to that library
++//                            * based on linked list implementation (a)
++//                            * based on provided test program, mylist-test
++//                            
++//
++//
++// Solution details:           
++//                         a) 
++//                            * used provided isEmptyList() function in some of the functions' implementations to handle the empty
++//                              list case
++//                            * checked for the NULL pointer passed as function argument when possible (pointer to the list passed, etc.)
++//                            * implemented reverseList() by assigning the address of previous node to current node's next
++//
++//                         b) Makefile:
++//
++//
++//
++//  Part2 requirements:     
++//                         - use libmylist.a produced in part1 to write a program 'revecho'
++//                           * revecho prints out the command line arguments in reverse order
++//                           * it looks for the word "dude" among the command line arguments passed and reports if it was found or not
++//                           * Makefile: 'revecho' has to link to myliblist.a as a third party static library
++//                           * valgrind output has to be included in README.txt
++//
++// Solution details:         
++//
++//                                          
++
++
+diff --git a/part1/Makefile b/part1/Makefile
+new file mode 100644
+index 0000000..1766b70
+--- /dev/null
++++ b/part1/Makefile
+@@ -0,0 +1,36 @@
++#use gcc for C compilation
++CC = gcc
++#
++# Additional include directories
++INCLUDES = 
++#
++# Compilation options: -g debug info, -Wall enables all warnings
++CFLAGS = -g -Wall $(INCLUDES)
++#
++# Linking options
++LDFLAGS = -g 
++#
++TARGET = mylist-test
++#
++# link
++$(TARGET) : mylist-test.o mylist.o
++	$(CC) $(LDFLAGS) mylist-test.o mylist.o -o $(TARGET)
++#
++#
++# compile mylist.c
++mylist.o: mylist.c mylist.h
++	$(CC) -c $(CFLAGS) mylist.c
++#
++# compile mylist-test.c
++mylist-test.o: mylist-test.c mylist.h
++	$(CC) -c $(CFLAGS) mylist-test.c
++#
++#
++# "Clean" target
++.PHONY: clean
++clean: 
++	rm -f *.o a.out core $(TARGET)
++
++# "all" target
++.PHONY: all
++all: $(TARGET) 
+diff --git a/part1/mylist.c b/part1/mylist.c
+index 4c61911..4a8e34e 100644
+--- a/part1/mylist.c
++++ b/part1/mylist.c
+@@ -1,3 +1,5 @@
++#include <stdlib.h>
++#include <string.h>
+ #include <stdio.h>
+ #include "mylist.h"
+ 
+@@ -7,19 +9,20 @@ struct Node *addFront(struct List *list, void *data)
+ 
+     if (list == NULL)
+     {
+-        printf("Error: Pointer to the list is a NULL pointer\n");
++        printf("Error: Pointer to the list is a NULL pointer!\n");
+         return NULL;
+     }
+ 
+-    pn = (struct Node *)malloc(sizeof(struct Node));
++    // create node
++    pn = (struct Node *)malloc(sizeof(struct Node)); 
+ 
+-    // check return value of malloc()
+     if (pn == NULL)
+     {
+-        printf("malloc returned NULL.\n");
++        printf("Failure: malloc returned NULL");
+         return pn;
+     }
+ 
++    // the new created node will become the head of the list
+     pn->data = data;
+     pn->next = list->head;
+     list->head = pn;
+@@ -33,85 +36,197 @@ void traverseList(struct List *list, void (*f)(void *))
+ 
+     if (list == NULL)
+     {
+-        printf("Error: Pointer to the list is a NULL pointer\n");
++        printf("Error: Pointer to the list is a NULL pointer!\n");
+         return;
+     }
+-    
+-    if (isEmptyList(list))
++
++    if( isEmptyList(list) )
++    {
+         return;
++    }
+ 
+     pn = list->head;
+ 
+-    while (pn != NULL)
++    // go node by node
++    while(pn != NULL)
+     {
+         f(pn->data);
+         pn = pn->next;
+-    }   
++    }
+ }
+ 
+ void flipSignDouble(void *data)
+ {
+-    *(double *)data = -1 * (*(double *)data);
++    if(data == NULL)
++    {
++        perror("NULL data pointer!\n");
++        return;
++    }
+ 
++    *(double *)data *= -1;
+ }
+ 
+ int compareDouble(const void *data1, const void *data2)
+ {
+-    if (*(double *)data1 == *(double *)data2)
++    if (*(double *) data1 == *(double *) data2)
+         return 0;
++
+     return 1;
+ }
+ 
+-struct Node *findNode(struct List *list, const void *dataSought, int(* compar)(const void *, const void *))
++struct Node *findNode(struct List *list, const void *dataSought, int (*compar)(const void *, const void *))
+ {
+     struct Node *pn;
+ 
+     if (list == NULL)
+     {
+-       printf("Error: Pointer to the list is a NULL pointer\n");
++        printf("Error: Pointer to the list is a NULL pointer!\n");
+         return NULL;
+     }
+ 
+-    if (isEmptyList(list))
++    if( isEmptyList(list) )
++    {
+         return NULL;
++    }
+ 
++    // start with the head
+     pn = list->head;
+ 
+-    // traverse list and compare each node's data to dataSought
+-    while (pn != NULL)
++    while(pn != NULL)
+     {
+-        if (compareDouble(pn->data, dataSought)
+-        return pn;
+-       else
+-           pn = pn->next;
+-   }
+-   return NULL;
++        if (compar(pn->data, dataSought) == 0)
++        {
++            // node found
++            return pn;
++        }
++
++        // continue to search
++        pn = pn->next;
++    }
++
++    // not found
++    return NULL;
+ }
+ 
+ void *popFront(struct List *list)
+ {
+     struct Node *pn;
+-    void *saveNodeData;
++    void *tdata;
++    
++    if (list == NULL)
++    {
++        printf("Error: Pointer to the list is a NULL pointer!\n");
++        return NULL;
++    }
+ 
+-    // assign address of node we're popping to pn
++    if( isEmptyList(list) )
++    {
++        return NULL;
++    }
++
++    // save the data
+     pn = list->head;
++    tdata = pn->data;
+ 
+-    // save the data from the element we're popping
+-    saveNodeData = pn->data;
+-    
+-    // now that we've saved what we need, we can assign the new
+-    // list head
++    // set the new head of the list
+     list->head = pn->next;
+ 
+-    // now that we have a new list head we can deallocate
+-    // the memory by freeing pn
++    // deallocate the original head
+     free(pn);
+ 
+-    // and finally, return the data from the original first Node
+-    return saveNodeData;
++    return tdata;
+ }
+ 
++void removeAllNodes(struct List *list)
++{
++    struct Node *pn;
+ 
++    if (list == NULL)
++    {
++        printf("Error: Pointer to the list is a NULL pointer!\n");
++        return;
++    }
++
++    if( isEmptyList(list) )
++    {
++        return;
++    }
++
++    pn = list->head;
++
++    while(pn != NULL)
++    {
++        pn = pn->next;
++        popFront(list);
++    }
++}
++
++struct Node *addAfter(struct List *list, struct Node *prevNode, void *data)
++{
++    struct Node *pn;
++
++    if (list == NULL)
++    {
++        printf("Error: Pointer to the list is a NULL pointer!\n");
++        return NULL;
++    }
++
++    if (prevNode == NULL)
++    {
++        // return head created by addFront
++        return addFront(list, data);
++    }
++    
++    pn = (struct Node*)malloc(sizeof(struct Node));
++    
++    if (pn == NULL)
++    {   
++        printf("Failure: malloc returned NULL");
++        return pn; 
++    } 
++
++    pn->data = data;
++    pn->next = prevNode->next;
++    prevNode->next = pn;
++
++    // return created node
++    return pn;
++
++}
++
++
++void reverseList(struct List *list)
++{
++    // we just change nodes' next (opposite direction)
++
++    struct Node *prv = NULL;
++    struct Node *cur;
++    struct Node *nxt;
++
++    if (list == NULL)
++    {
++        printf("Error: Pointer to the list is a NULL pointer!\n");
++        return;
++    }
++
++    if( isEmptyList(list) )
++    {
++        return;
++    }
++    
++    cur = list->head;
++
++    while (cur != NULL)
++    {
++        nxt = cur->next;
++        cur->next = prv;
++        prv = cur;
++        cur = nxt;
++    }
++
++    list->head = prv;
++
++}
+ 
+ 
+ 
+-- 
+1.7.9.5
+
+
+From f1d652c7d4a9a0de2d65dff233dc6a079206ab1a Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Wed, 1 Oct 2014 22:49:47 -0400
+Subject: [PATCH 4/7] modified Makefile to create static library libmylist.a
+ and added valgrind output to README.txt
+
+---
+ README.txt     |   37 +++++++++++++++++++++++++++++++++++++
+ part1/Makefile |   17 +++++++++++++----
+ 2 files changed, 50 insertions(+), 4 deletions(-)
+
+diff --git a/README.txt b/README.txt
+index 892c6bb..5b38ab7 100644
+--- a/README.txt
++++ b/README.txt
+@@ -46,3 +46,40 @@
+ //                                          
+ 
+ 
++==31108== Memcheck, a memory error detector
++==31108== Copyright (C) 2002-2011, and GNU GPL'd, by Julian Seward et al.
++==31108== Using Valgrind-3.7.0 and LibVEX; rerun with -h for copyright info
++==31108== Command: ./mylist-test
++==31108== 
++testing addFront(): 9.0 8.0 7.0 6.0 5.0 4.0 3.0 2.0 1.0 
++testing flipSignDouble(): -9.0 -8.0 -7.0 -6.0 -5.0 -4.0 -3.0 -2.0 -1.0 
++testing flipSignDouble() again: 9.0 8.0 7.0 6.0 5.0 4.0 3.0 2.0 1.0 
++testing findNode(): OK
++popped 9.0, the rest is: [ 8.0 7.0 6.0 5.0 4.0 3.0 2.0 1.0 ]
++popped 8.0, the rest is: [ 7.0 6.0 5.0 4.0 3.0 2.0 1.0 ]
++popped 7.0, the rest is: [ 6.0 5.0 4.0 3.0 2.0 1.0 ]
++popped 6.0, the rest is: [ 5.0 4.0 3.0 2.0 1.0 ]
++popped 5.0, the rest is: [ 4.0 3.0 2.0 1.0 ]
++popped 4.0, the rest is: [ 3.0 2.0 1.0 ]
++popped 3.0, the rest is: [ 2.0 1.0 ]
++popped 2.0, the rest is: [ 1.0 ]
++popped 1.0, the rest is: [ ]
++testing addAfter(): 1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0 9.0 
++popped 1.0, and reversed the rest: [ 9.0 8.0 7.0 6.0 5.0 4.0 3.0 2.0 ]
++popped 9.0, and reversed the rest: [ 2.0 3.0 4.0 5.0 6.0 7.0 8.0 ]
++popped 2.0, and reversed the rest: [ 8.0 7.0 6.0 5.0 4.0 3.0 ]
++popped 8.0, and reversed the rest: [ 3.0 4.0 5.0 6.0 7.0 ]
++popped 3.0, and reversed the rest: [ 7.0 6.0 5.0 4.0 ]
++popped 7.0, and reversed the rest: [ 4.0 5.0 6.0 ]
++popped 4.0, and reversed the rest: [ 6.0 5.0 ]
++popped 6.0, and reversed the rest: [ 5.0 ]
++popped 5.0, and reversed the rest: [ ]
++==31108== 
++==31108== HEAP SUMMARY:
++==31108==     in use at exit: 0 bytes in 0 blocks
++==31108==   total heap usage: 18 allocs, 18 frees, 288 bytes allocated
++==31108== 
++==31108== All heap blocks were freed -- no leaks are possible
++==31108== 
++==31108== For counts of detected and suppressed errors, rerun with: -v
++==31108== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 2 from 2)
+diff --git a/part1/Makefile b/part1/Makefile
+index 1766b70..760dfb6 100644
+--- a/part1/Makefile
++++ b/part1/Makefile
+@@ -12,24 +12,33 @@ LDFLAGS = -g
+ #
+ TARGET = mylist-test
+ #
++# Static library name
++STATICLIB = libmylist.a
++#
+ # link
+-$(TARGET) : mylist-test.o mylist.o
+-	$(CC) $(LDFLAGS) mylist-test.o mylist.o -o $(TARGET)
++$(TARGET) : mylist-test.o $(STATICLIB)
++	$(CC) $(LDFLAGS) mylist-test.o $(STATICLIB) -o $(TARGET)
+ #
+ #
+ # compile mylist.c
+ mylist.o: mylist.c mylist.h
+ 	$(CC) -c $(CFLAGS) mylist.c
+ #
++#
++# create library
++$(STATICLIB) : mylist.o
++	ar rc $(STATICLIB) mylist.o
++	ranlib $(STATICLIB)
++#
+ # compile mylist-test.c
+ mylist-test.o: mylist-test.c mylist.h
+ 	$(CC) -c $(CFLAGS) mylist-test.c
+ #
+ #
+-# "Clean" target
++# "clean" target
+ .PHONY: clean
+ clean: 
+-	rm -f *.o a.out core $(TARGET)
++	rm -f *.o *.a a.out core $(TARGET)
+ 
+ # "all" target
+ .PHONY: all
+-- 
+1.7.9.5
+
+
+From dc3d13598da61b1406bc06b7c9b67c9d36b48fec Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Thu, 2 Oct 2014 00:12:40 -0400
+Subject: [PATCH 5/7] Wrote revecho program and the Makefile
+
+---
+ part2/Makefile  |   35 +++++++++++++++++++++++++++++++++++
+ part2/revecho.c |   41 +++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 76 insertions(+)
+ create mode 100644 part2/Makefile
+ create mode 100644 part2/revecho.c
+
+diff --git a/part2/Makefile b/part2/Makefile
+new file mode 100644
+index 0000000..4bb4158
+--- /dev/null
++++ b/part2/Makefile
+@@ -0,0 +1,35 @@
++#use gcc for C compilation
++CC = gcc
++#
++# Additional include directories
++INCLUDES = -I../part1
++#
++# Compilation options: -g debug info, -Wall enables all warnings
++CFLAGS = -g -Wall $(INCLUDES)
++#
++# Linking options
++LDFLAGS = -g -L../part1 
++#
++LDLIBS = -lmylist
++#
++TARGET = revecho
++#
++# Static library name
++STATICLIB = libmylist.a
++#
++# link
++$(TARGET) : revecho.o
++	$(CC) $(LDFLAGS) revecho.o $(LDLIBS) -o $(TARGET)
++#
++# compile revecho.c
++revecho.o: revecho.c
++	$(CC) -c $(CFLAGS) revecho.c
++#
++# "clean" target
++.PHONY: clean
++clean: 
++	rm -f *.o *.a a.out core $(TARGET)
++
++# "all" target
++.PHONY: all
++all: $(TARGET) 
+diff --git a/part2/revecho.c b/part2/revecho.c
+new file mode 100644
+index 0000000..93873b3
+--- /dev/null
++++ b/part2/revecho.c
+@@ -0,0 +1,41 @@
++#include <stdio.h>
++#include <string.h>
++#include "mylist.h"
++
++void printData(void *str)
++{
++    printf("%s\n", (char *)str);
++}
++/*
++int compareStrings(const void *str1, const void *str2)
++{
++    return strcmp((const char *)str1, (const char*)str2);
++}*/
++
++int main(int argc, char **argv)
++{
++    int i;
++    struct List l;
++    struct Node *pn;
++    initList(&l);
++
++    for (i = 1; i < argc; i++)
++    {
++        addFront(&l, argv[i]);
++    }
++
++    traverseList(&l, printData);
++    
++    pn = findNode(&l, "dude", (int (*)(const void *, const void *))strcmp);
++    
++    if (pn)
++    {
++        printf("\ndude found\n");
++    }
++    else
++        printf("\ndude not found\n");
++
++    removeAllNodes(&l);
++    
++    return 0;
++}
+-- 
+1.7.9.5
+
+
+From 190a6d658d4cdf81a2efb854e61708f3dd07665f Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Thu, 2 Oct 2014 00:13:46 -0400
+Subject: [PATCH 6/7] Added valgrind output for part2 to README
+
+---
+ README.txt |   26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/README.txt b/README.txt
+index 5b38ab7..5cb1b32 100644
+--- a/README.txt
++++ b/README.txt
+@@ -45,6 +45,8 @@
+ //
+ //                                          
+ 
++PART 1 Valgrind Output
++
+ 
+ ==31108== Memcheck, a memory error detector
+ ==31108== Copyright (C) 2002-2011, and GNU GPL'd, by Julian Seward et al.
+@@ -83,3 +85,27 @@ popped 5.0, and reversed the rest: [ ]
+ ==31108== 
+ ==31108== For counts of detected and suppressed errors, rerun with: -v
+ ==31108== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 2 from 2)
++
++
++PART 2 Valgrind Output 
++
++
++==13285== Memcheck, a memory error detector
++==13285== Copyright (C) 2002-2011, and GNU GPL'd, by Julian Seward et al.
++==13285== Using Valgrind-3.7.0 and LibVEX; rerun with -h for copyright info
++==13285== Command: ./revecho hello world dude
++==13285== 
++dude
++world
++hello
++
++dude found
++==13285== 
++==13285== HEAP SUMMARY:
++==13285==     in use at exit: 0 bytes in 0 blocks
++==13285==   total heap usage: 3 allocs, 3 frees, 48 bytes allocated
++==13285== 
++==13285== All heap blocks were freed -- no leaks are possible
++==13285== 
++==13285== For counts of detected and suppressed errors, rerun with: -v
++==13285== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 2 from 2)
+-- 
+1.7.9.5
+
+
+From 6feb1da968e0d2589f1a63ebfb3ca9d8f75cfc7d Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Thu, 2 Oct 2014 23:10:10 -0400
+Subject: [PATCH 7/7] Added comments to mylist.c, made slight changes to
+ Makefiles (all target), finished writing README.txt
+
+---
+ README.txt     |   77 +++++++++++++++++++++++++++++++++++---------------------
+ part1/Makefile |    2 +-
+ part1/mylist.c |   17 +++++--------
+ part2/Makefile |    2 +-
+ 4 files changed, 57 insertions(+), 41 deletions(-)
+
+diff --git a/README.txt b/README.txt
+index 5cb1b32..a38be2d 100644
+--- a/README.txt
++++ b/README.txt
+@@ -1,48 +1,69 @@
+-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
++//////////////////////////////////////////////////////////////////////////
+ //                                                                                                                  
+ // Alisa Krivokapic
+ // UNI: ak3533
+-// W3157, lab #3, October 3, 2014
++// CS 3157, lab #3, October 3, 2014
++//
++//////////////////////////////////////////////////////////////////////////
+ //
+-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+-
+-
+-
+ //
+ //  Part1 requirements:
+-//                          a) implement a generic singly linked list that can hold any data type
+-//                            * the interface is provided in a header file mylist.h
+-//                            * test driver program is provided with mylist-test.c
+-//                            * produces the output that matches the one in provided text file mylist-test-output.txt'
+-//                            * Makefile to build mylist-test
+-//                            * valgrind output has to be included in README.txt
++//  
++//  a) implement a generic singly linked list that can hold any data type
++//     * the interface is provided in the header file mylist.h
++//     * test driver program is provided with mylist-test.c
++//     * produces output that matches the output in the provided
++//       text file mylist-test-output.txt'
++//     * Makefile to build mylist-test
++//     * valgrind output has to be included in README.txt
+ //                              
+-//                          b) modify Makefile to produce a static library libmylist.a and test program must link to that library
+-//                            * based on linked list implementation (a)
+-//                            * based on provided test program, mylist-test
++//  b) modify Makefile to produce a static library libmylist.a and the test
++//     program must link to that library
++//     * based on linked list implementation (a)
++//     * based on provided test program, mylist-test
+ //                            
+ //
+ //
+-// Solution details:           
+-//                         a) 
+-//                            * used provided isEmptyList() function in some of the functions' implementations to handle the empty
+-//                              list case
+-//                            * checked for the NULL pointer passed as function argument when possible (pointer to the list passed, etc.)
+-//                            * implemented reverseList() by assigning the address of previous node to current node's next
++//  Solution details: worked as expected    
++//  
++//  a) * used isEmptyList() function to handle the empty list case
++//     * implemented reverseList() by assigning the address of previous
++//       node to current node's next
++//
++//  b) Makefile:
++//
++//     - created libmylist.a using following steps:
++//       * compiled mylist.c into object file mylist.o 
++//       * used "av rc libmylist.a mylist.o" to create the static library 
++//         libmylist.a 
++//       * used "ranlib libmylist.a" to create index inside the library
++//           
++//     - built target set by TARGET = mylist-test using following steps:
++//       * compiled mylist-test.c into mylist-test.o
++//       * linked TARGET = mylist-test to the STATICLIB = libmylist.a
+ //
+-//                         b) Makefile:
+ //
+ //
+ //
+ //  Part2 requirements:     
+-//                         - use libmylist.a produced in part1 to write a program 'revecho'
+-//                           * revecho prints out the command line arguments in reverse order
+-//                           * it looks for the word "dude" among the command line arguments passed and reports if it was found or not
+-//                           * Makefile: 'revecho' has to link to myliblist.a as a third party static library
+-//                           * valgrind output has to be included in README.txt
++//  
++//  - use libmylist.a produced in part1 to write a program 'revecho'
++//    * revecho prints out the command line arguments in reverse order
++//    * it looks for the word "dude" among the command line arguments
++//      passed and reports if it was found or not
++//    * Makefile: 'revecho' has to link to the third party static library
++//      myliblist.a
++//    * valgrind output has to be included in README.txt
+ //
+-// Solution details:         
++//  Solution details: worked as expected
+ //
++//    * implemented printData() and passed printData to traverseList() 
++//      to print out the command line arguments
++//    * used findNode() to find "dude" and passed strcmp to it by
++//      casting it to the correct function pointer type
++//    * modified Makefile to use predefined variables LDFLAGS and INCLUDES
++//      to specify the path for the library libmylist.a and file mylist.h 
++//      using "-L" and "-I" option
+ //                                          
+ 
+ PART 1 Valgrind Output
+diff --git a/part1/Makefile b/part1/Makefile
+index 760dfb6..6829a0f 100644
+--- a/part1/Makefile
++++ b/part1/Makefile
+@@ -42,4 +42,4 @@ clean:
+ 
+ # "all" target
+ .PHONY: all
+-all: $(TARGET) 
++all: clean $(TARGET) 
+diff --git a/part1/mylist.c b/part1/mylist.c
+index 4a8e34e..ba78b7b 100644
+--- a/part1/mylist.c
++++ b/part1/mylist.c
+@@ -153,7 +153,8 @@ void removeAllNodes(struct List *list)
+     }
+ 
+     pn = list->head;
+-
++    
++    // remove nodes from the front
+     while(pn != NULL)
+     {
+         pn = pn->next;
+@@ -177,6 +178,7 @@ struct Node *addAfter(struct List *list, struct Node *prevNode, void *data)
+         return addFront(list, data);
+     }
+     
++    // create node
+     pn = (struct Node*)malloc(sizeof(struct Node));
+     
+     if (pn == NULL)
+@@ -197,8 +199,6 @@ struct Node *addAfter(struct List *list, struct Node *prevNode, void *data)
+ 
+ void reverseList(struct List *list)
+ {
+-    // we just change nodes' next (opposite direction)
+-
+     struct Node *prv = NULL;
+     struct Node *cur;
+     struct Node *nxt;
+@@ -216,6 +216,7 @@ void reverseList(struct List *list)
+     
+     cur = list->head;
+ 
++    // we make the current node's next point to prev
+     while (cur != NULL)
+     {
+         nxt = cur->next;
+@@ -223,14 +224,8 @@ void reverseList(struct List *list)
+         prv = cur;
+         cur = nxt;
+     }
+-
++    
++    // assign new list head
+     list->head = prv;
+ 
+ }
+-
+-
+-
+-
+-
+-
+-
+diff --git a/part2/Makefile b/part2/Makefile
+index 4bb4158..736c3cb 100644
+--- a/part2/Makefile
++++ b/part2/Makefile
+@@ -32,4 +32,4 @@ clean:
+ 
+ # "all" target
+ .PHONY: all
+-all: $(TARGET) 
++all: clean $(TARGET) 
+-- 
+1.7.9.5
+

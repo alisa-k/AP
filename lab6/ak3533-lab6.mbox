@@ -1,0 +1,1073 @@
+From 088ce66d7eb6b8fd32ef035a9d9669ec0a5da282 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Mon, 3 Nov 2014 23:55:25 -0500
+Subject: [PATCH 1/8] First version of http-client.c using fread and fwrite
+ instead fputs
+
+---
+ part2/Makefile      |   32 +++++++++++++
+ part2/http-client.c |  133 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 165 insertions(+)
+ create mode 100644 part2/Makefile
+ create mode 100644 part2/http-client.c
+
+diff --git a/part2/Makefile b/part2/Makefile
+new file mode 100644
+index 0000000..19dd746
+--- /dev/null
++++ b/part2/Makefile
+@@ -0,0 +1,32 @@
++#
++# Makefile for lab 6, part 2
++#
++
++# use gcc for compiling
++CC  = gcc
++
++INCLUDES =
++
++# compiling options
++CFLAGS   = -g -Wall $(INCLUDES)
++
++# linking options
++LDFLAGS = -g
++
++# linking rules
++http-client: http-client.o
++	$(CC) $(LDFLAGS) http-client.o -o http-client
++
++# compiling rules
++http-client.o: http-client.c
++	$(CC) -c $(CFLAGS) http-client.c
++
++#.PHONY: default
++#default: http-client
++
++.PHONY: clean
++clean:
++	rm -f *.o *~ a.out core http-client
++
++.PHONY: all
++all: clean http-client
+diff --git a/part2/http-client.c b/part2/http-client.c
+new file mode 100644
+index 0000000..ff8d4b0
+--- /dev/null
++++ b/part2/http-client.c
+@@ -0,0 +1,133 @@
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <arpa/inet.h>
++#include <unistd.h>
++#include <netdb.h>
++
++#define SIZE 4096
++
++void die(char *msg)
++{
++    perror(msg);
++    exit(1);
++}
++
++int main(int argc, char **argv)
++{
++    int sock;                       /**/
++    struct sockaddr_in serverAddr;  
++    unsigned short serverPort;      /**/
++    char *serverIP;                 /* */
++    char *host;                     /* host argv[1] */
++    char *port;                     /* port argv[2] */
++    char *filePath;                 /* file path argv[3] */
++    char buffer[SIZE];
++    struct hostent *he;
++    FILE *fpSock;
++    FILE *fpHTML;
++    char *fileName;
++    size_t n;
++
++    // check if correct number of command line arguments entered 
++    if (argc != 4)
++    {
++        fprintf(stderr, "usage: %s <host> <port_number> <file_path>\n", argv[0]);
++        exit(1);
++    }
++
++    // get server ip from server name (argv[1])
++    host = argv[1];
++    if ((he = gethostbyname(host)) == NULL) {
++        die("gethostbyname failed");
++    }
++    serverIP = inet_ntoa(*(struct in_addr *)he->h_addr);
++    
++    // get serverPort as unsigned short and filePath
++    port = argv[2];
++    serverPort = atoi(port);
++    filePath = argv[3];
++    
++    /* Create a reliable, stream socket using TCP */
++    if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
++        die("socket() failed");
++
++    /* Construct the server address structure */
++    memset(&serverAddr, 0, sizeof(serverAddr));
++    serverAddr.sin_family = AF_INET;
++    serverAddr.sin_addr.s_addr = inet_addr(serverIP);
++    serverAddr.sin_port = htons(serverPort);
++
++    /* Establish the connection to the server */
++    if (connect(sock, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) < 0)
++        die("connect() failed");
++
++
++    /* Send request to the server */
++    sprintf(buffer, "GET %s HTTP/1.0\r\nHost: %s:%s\r\n\r\n", filePath, host, port);
++    if (send(sock, buffer, strlen(buffer), 0) != strlen(buffer))
++        die("send() failed");
++
++    /* Recieve response from server */
++    if ((fpSock = fdopen(sock, "r")) == 0)
++        die("fdopen() failed");
++
++    // check if request was successful
++    if (fgets(buffer, sizeof(buffer), fpSock) == 0)
++    {   
++        fclose(fpSock);
++        // check for reading or connection errors
++        if (ferror(fpSock))
++            die("reading error");
++        else 
++            die("connection closed prematurely");
++    }
++    
++    if (strstr(buffer, "200") == NULL)
++    {   
++        // request failed; print first line and exit
++        fprintf(stderr, "%s", buffer);
++        exit(1);
++    }    
++
++    // read until we find blank line
++    while (1)
++    {
++        if (fgets(buffer, sizeof(buffer), fpSock) == NULL)
++        {
++            if (ferror(fpSock))
++                die("reading error");
++            die("connection error");
++        }
++        if (!strcmp(buffer, "\r\n"))
++            break;
++    }
++    
++    // open file to write to
++    if ((fileName = strrchr(filePath, '/')) == NULL)
++        die("file path error");
++    fileName++;
++    if ((fpHTML = fopen(fileName, "wb")) == NULL)
++        die("fopen() failed");
++    
++    // write everything after blank line to fpHTML
++    while((n = fread(buffer, 1,  sizeof(buffer), fpSock)) > 0)
++    {
++        if (fwrite(buffer, 1, n, fpHTML) != n)
++        {
++            die("fwrite() failed");
++        }
++    }
++    if(ferror(fpSock))
++    {
++        die("fread failed");
++    }
++    // close file and socket
++    fclose(fpHTML);
++    fclose(fpSock);
++
++    return 0;
++}
+-- 
+1.7.9.5
+
+
+From a5df9d90ca64e8d32f0d6a6e1159f014c78afee8 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Tue, 4 Nov 2014 00:16:54 -0500
+Subject: [PATCH 2/8] First version of mdb-lookup-server, still need to change
+ variable names
+
+---
+ part1/mdb-lookup-server.c |  206 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 206 insertions(+)
+ create mode 100644 part1/mdb-lookup-server.c
+
+diff --git a/part1/mdb-lookup-server.c b/part1/mdb-lookup-server.c
+new file mode 100644
+index 0000000..3cccd36
+--- /dev/null
++++ b/part1/mdb-lookup-server.c
+@@ -0,0 +1,206 @@
++
++/*
++ * mdb-lookup.c
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++#include <sys/socket.h> /* for socket(), bind(), and connect() */
++#include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
++#include <unistd.h>     /* for close() */
++#include <signal.h>
++
++#include "mylist.h"
++#include "mdb.h"
++
++#define KeyMax 5
++#define MAXPENDING 5
++
++int loadmdb(FILE *fp, struct List *dest) 
++{
++    /*  
++     * read all records into memory
++     */
++
++    struct MdbRec r;
++    struct Node *node = NULL;
++    int count = 0;
++
++    while (fread(&r, sizeof(r), 1, fp) == 1) {
++
++        // allocate memory for a new record and copy into it the one
++        // that was just read from the database.
++        struct MdbRec *rec = (struct MdbRec *)malloc(sizeof(r));
++        if (!rec)
++            return -1; 
++        memcpy(rec, &r, sizeof(r));
++
++        // add the record to the linked list.
++        node = addAfter(dest, node, rec);
++        if (node == NULL) 
++            return -1; 
++
++        count++;
++    }   
++
++    // see if fread() produced error
++    if (ferror(fp)) 
++        return -1; 
++
++    return count;
++}
++
++void freemdb(struct List *list) 
++{
++    // free all the records
++    traverseList(list, &free);
++    removeAllNodes(list);
++}
++
++
++static void die(const char *message)
++{
++    perror(message);
++    exit(1); 
++}
++
++void HandleTCPClient(int clntSocket, char *db_name)
++{    
++    int recvMsgSize = 40;            /* Size of received message */
++    char echoBuffer[recvMsgSize];       /* Buffer for echo string */
++    FILE *fp;
++    struct List list;
++    FILE *input;     
++    int loaded;
++    char line[1000];
++    char key[KeyMax + 1];
++
++    /* open database file (db_name) */
++    fp = fopen(db_name, "rb");
++    if (fp == NULL) 
++        die(db_name);
++
++    /*
++     * read all records into memory
++     */
++    initList(&list);
++
++    loaded = loadmdb(fp, &list);
++    if (loaded < 0)
++        die("loadmdb");
++
++    fclose(fp);
++
++    /*  
++     * lookup loop
++     */
++
++    input = fdopen(clntSocket, "r");
++
++    while (fgets(line, sizeof(line), input) != NULL) {
++
++        size_t last;
++        struct Node *node;
++        int recNo;
++        int len;
++
++        // must null-terminate the string manually after strncpy().
++        strncpy(key, line, sizeof(key) - 1); 
++        key[sizeof(key) - 1] = '\0';
++
++        // if newline is there, remove it.
++        last = strlen(key) - 1;
++        if (key[last] == '\n')
++            key[last] = '\0';
++
++        // traverse the list, printing out the matching records
++        node = list.head;
++        recNo = 1;
++        while (node) {
++            struct MdbRec *rec = (struct MdbRec *)node->data;
++            if (strstr(rec->name, key) || strstr(rec->msg, key)) {
++                len = sprintf(echoBuffer, "%4d: {%s} said {%s}\n", recNo, rec->name, rec->msg);
++                if (send(clntSocket, echoBuffer, len, 0) != len){
++                    perror("send() failed");
++                    break;
++                }
++            }
++            node = node->next;
++            recNo++;
++        }
++        echoBuffer[0] = '\n';
++        echoBuffer[1] = '\0';
++        if (send(clntSocket, echoBuffer, 1, 0) != 1)
++            perror("send() failed");
++    }
++
++    freemdb(&list);       /* free mdb */
++    close(clntSocket);    /* Close client socket */
++}
++
++int main(int argc, char **argv)
++{
++    int servSock;                       /* Socket descriptor for server */
++    int clntSock;                       /* Socket descriptor for client */
++    struct sockaddr_in echoServAddr;    /* Local address */ 
++    struct sockaddr_in echoClntAddr;    /* Client address */
++    unsigned short echoServPort;        /* Server port */
++    unsigned int clntLen;               /* Length of client address data structure */
++
++
++    // ignore SIGPIPE so that we don’t terminate when we call
++    // send() on a disconnected socket.
++    if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) 
++        die("signal() failed");
++       
++
++    /*
++     * 
++     */
++
++    if (argc != 3) {
++        fprintf(stderr, "%s\n", "usage: mdb-lookup-server <database_file> <port_number>");
++        exit(1);
++    }
++
++    echoServPort = atoi(argv[2]);  /* First arg:  local port */
++    
++    /* Create socket for incoming connections */
++    if ((servSock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
++        die("socket() failed");
++    
++    /* Construct local address structure */
++    memset(&echoServAddr, 0, sizeof(echoServAddr));   /* Zero out structure */
++    echoServAddr.sin_family = AF_INET;                /* Internet address family */
++    echoServAddr.sin_addr.s_addr = htonl(INADDR_ANY); /* Any incoming interface */
++    echoServAddr.sin_port = htons(echoServPort);      /* Local port */
++
++    /* Bind to the local address */
++    if (bind(servSock, (struct sockaddr *) &echoServAddr, sizeof(echoServAddr)) < 0)
++        die("bind() failed");
++
++    /* Mark the socket so it will listen for incoming connections */
++    if (listen(servSock, MAXPENDING) < 0)
++        die("listen() failed");
++
++    for (;;) /* Run forever */
++    {
++        /* Set the size of the in-out parameter */
++        clntLen = sizeof(echoClntAddr);
++
++        /* Wait for a client to connect*/
++        if ((clntSock = accept(servSock, (struct sockaddr *) &echoClntAddr,
++                               &clntLen)) < 0)
++            die("accept() failed");
++
++        /* clntSock is connected to a client! */
++
++        printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
++
++        HandleTCPClient(clntSock, argv[1]);
++    }
++
++    return 0;
++}
+-- 
+1.7.9.5
+
+
+From 601c8303dd27468b40cb976913cebbde5de0a5ce Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Tue, 4 Nov 2014 13:03:24 -0500
+Subject: [PATCH 3/8] Added more comments to http-client
+
+---
+ part2/Makefile      |    3 ---
+ part2/http-client.c |   27 +++++++++++++++------------
+ 2 files changed, 15 insertions(+), 15 deletions(-)
+
+diff --git a/part2/Makefile b/part2/Makefile
+index 19dd746..2b2c638 100644
+--- a/part2/Makefile
++++ b/part2/Makefile
+@@ -21,9 +21,6 @@ http-client: http-client.o
+ http-client.o: http-client.c
+ 	$(CC) -c $(CFLAGS) http-client.c
+ 
+-#.PHONY: default
+-#default: http-client
+-
+ .PHONY: clean
+ clean:
+ 	rm -f *.o *~ a.out core http-client
+diff --git a/part2/http-client.c b/part2/http-client.c
+index ff8d4b0..26bb0c6 100644
+--- a/part2/http-client.c
++++ b/part2/http-client.c
+@@ -18,18 +18,22 @@ void die(char *msg)
+ 
+ int main(int argc, char **argv)
+ {
+-    int sock;                       /**/
+-    struct sockaddr_in serverAddr;  
+-    unsigned short serverPort;      /**/
+-    char *serverIP;                 /* */
++    
+     char *host;                     /* host argv[1] */
+     char *port;                     /* port argv[2] */
+-    char *filePath;                 /* file path argv[3] */
++    char *filePath;                 /* file path argv[3] */ 
++
++    int sock;                       /* socket file descriptor */
++    struct sockaddr_in serverAddr;  /* server address */
++    unsigned short serverPort;      /* server port */
++    char *serverIP;                 /* server IP */
++    struct hostent *he;             /* used to convert host name into IP address*/
++    
++    FILE *fpSock;                   /* socket file pointer */
++    FILE *fpHTML;                   /* make.html file pointer */
++    char *fileName;                 /* name of file to be written to*/
++    
+     char buffer[SIZE];
+-    struct hostent *he;
+-    FILE *fpSock;
+-    FILE *fpHTML;
+-    char *fileName;
+     size_t n;
+ 
+     // check if correct number of command line arguments entered 
+@@ -51,7 +55,8 @@ int main(int argc, char **argv)
+     serverPort = atoi(port);
+     filePath = argv[3];
+     
+-    /* Create a reliable, stream socket using TCP */
++
++     /* Create a reliable, stream socket using TCP */
+     if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+         die("socket() failed");
+ 
+@@ -65,7 +70,6 @@ int main(int argc, char **argv)
+     if (connect(sock, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) < 0)
+         die("connect() failed");
+ 
+-
+     /* Send request to the server */
+     sprintf(buffer, "GET %s HTTP/1.0\r\nHost: %s:%s\r\n\r\n", filePath, host, port);
+     if (send(sock, buffer, strlen(buffer), 0) != strlen(buffer))
+@@ -78,7 +82,6 @@ int main(int argc, char **argv)
+     // check if request was successful
+     if (fgets(buffer, sizeof(buffer), fpSock) == 0)
+     {   
+-        fclose(fpSock);
+         // check for reading or connection errors
+         if (ferror(fpSock))
+             die("reading error");
+-- 
+1.7.9.5
+
+
+From d243b65f6f05cbc4fd5a43e0ec10e696c4f44051 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Tue, 4 Nov 2014 15:10:26 -0500
+Subject: [PATCH 4/8] changed variable names and added some comments
+
+---
+ part1/mdb-lookup-server.c |   65 +++++++++++++++++++--------------------------
+ 1 file changed, 27 insertions(+), 38 deletions(-)
+
+diff --git a/part1/mdb-lookup-server.c b/part1/mdb-lookup-server.c
+index 3cccd36..84ca6b8 100644
+--- a/part1/mdb-lookup-server.c
++++ b/part1/mdb-lookup-server.c
+@@ -1,15 +1,15 @@
+ 
+ /*
+- * mdb-lookup.c
++ * mdb-lookup-server.c
+  */
+ 
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+ 
+-#include <sys/socket.h> /* for socket(), bind(), and connect() */
+-#include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
+-#include <unistd.h>     /* for close() */
++#include <sys/socket.h> 
++#include <arpa/inet.h>  
++#include <unistd.h>     
+ #include <signal.h>
+ 
+ #include "mylist.h"
+@@ -17,12 +17,11 @@
+ 
+ #define KeyMax 5
+ #define MAXPENDING 5
++#define SIZE 1000
+ 
+ int loadmdb(FILE *fp, struct List *dest) 
+ {
+-    /*  
+-     * read all records into memory
+-     */
++    /* read all records into memory */
+ 
+     struct MdbRec r;
+     struct Node *node = NULL;
+@@ -68,8 +67,7 @@ static void die(const char *message)
+ 
+ void HandleTCPClient(int clntSocket, char *db_name)
+ {    
+-    int recvMsgSize = 40;            /* Size of received message */
+-    char echoBuffer[recvMsgSize];       /* Buffer for echo string */
++    char buffer[SIZE];       /* Buffer for string */
+     FILE *fp;
+     struct List list;
+     FILE *input;     
+@@ -82,9 +80,7 @@ void HandleTCPClient(int clntSocket, char *db_name)
+     if (fp == NULL) 
+         die(db_name);
+ 
+-    /*
+-     * read all records into memory
+-     */
++    /* read all records into memory */
+     initList(&list);
+ 
+     loaded = loadmdb(fp, &list);
+@@ -93,10 +89,7 @@ void HandleTCPClient(int clntSocket, char *db_name)
+ 
+     fclose(fp);
+ 
+-    /*  
+-     * lookup loop
+-     */
+-
++    /* lookup loop */
+     input = fdopen(clntSocket, "r");
+ 
+     while (fgets(line, sizeof(line), input) != NULL) {
+@@ -121,8 +114,8 @@ void HandleTCPClient(int clntSocket, char *db_name)
+         while (node) {
+             struct MdbRec *rec = (struct MdbRec *)node->data;
+             if (strstr(rec->name, key) || strstr(rec->msg, key)) {
+-                len = sprintf(echoBuffer, "%4d: {%s} said {%s}\n", recNo, rec->name, rec->msg);
+-                if (send(clntSocket, echoBuffer, len, 0) != len){
++                len = sprintf(buffer, "%4d: {%s} said {%s}\n", recNo, rec->name, rec->msg);
++                if (send(clntSocket, buffer, len, 0) != len){
+                     perror("send() failed");
+                     break;
+                 }
+@@ -130,9 +123,9 @@ void HandleTCPClient(int clntSocket, char *db_name)
+             node = node->next;
+             recNo++;
+         }
+-        echoBuffer[0] = '\n';
+-        echoBuffer[1] = '\0';
+-        if (send(clntSocket, echoBuffer, 1, 0) != 1)
++        buffer[0] = '\n';
++        buffer[1] = '\0';
++        if (send(clntSocket, buffer, 1, 0) != 1)
+             perror("send() failed");
+     }
+ 
+@@ -144,9 +137,9 @@ int main(int argc, char **argv)
+ {
+     int servSock;                       /* Socket descriptor for server */
+     int clntSock;                       /* Socket descriptor for client */
+-    struct sockaddr_in echoServAddr;    /* Local address */ 
+-    struct sockaddr_in echoClntAddr;    /* Client address */
+-    unsigned short echoServPort;        /* Server port */
++    struct sockaddr_in servAddr;        /* Local address */ 
++    struct sockaddr_in clntAddr;        /* Client address */
++    unsigned short servPort;            /* Server port */
+     unsigned int clntLen;               /* Length of client address data structure */
+ 
+ 
+@@ -154,31 +147,27 @@ int main(int argc, char **argv)
+     // send() on a disconnected socket.
+     if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) 
+         die("signal() failed");
+-       
+-
+-    /*
+-     * 
+-     */
+ 
++    /* user must specify exactly 2 command line arguments */
+     if (argc != 3) {
+         fprintf(stderr, "%s\n", "usage: mdb-lookup-server <database_file> <port_number>");
+         exit(1);
+     }
+ 
+-    echoServPort = atoi(argv[2]);  /* First arg:  local port */
++    servPort = atoi(argv[2]);  /* local port */
+     
+     /* Create socket for incoming connections */
+     if ((servSock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+         die("socket() failed");
+     
+     /* Construct local address structure */
+-    memset(&echoServAddr, 0, sizeof(echoServAddr));   /* Zero out structure */
+-    echoServAddr.sin_family = AF_INET;                /* Internet address family */
+-    echoServAddr.sin_addr.s_addr = htonl(INADDR_ANY); /* Any incoming interface */
+-    echoServAddr.sin_port = htons(echoServPort);      /* Local port */
++    memset(&servAddr, 0, sizeof(servAddr));         /* Zero out structure */
++    servAddr.sin_family = AF_INET;                  /* Internet address family */
++    servAddr.sin_addr.s_addr = htonl(INADDR_ANY);   /* Any incoming interface */
++    servAddr.sin_port = htons(servPort);            /* Local port */
+ 
+     /* Bind to the local address */
+-    if (bind(servSock, (struct sockaddr *) &echoServAddr, sizeof(echoServAddr)) < 0)
++    if (bind(servSock, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0)
+         die("bind() failed");
+ 
+     /* Mark the socket so it will listen for incoming connections */
+@@ -188,16 +177,16 @@ int main(int argc, char **argv)
+     for (;;) /* Run forever */
+     {
+         /* Set the size of the in-out parameter */
+-        clntLen = sizeof(echoClntAddr);
++        clntLen = sizeof(clntAddr);
+ 
+         /* Wait for a client to connect*/
+-        if ((clntSock = accept(servSock, (struct sockaddr *) &echoClntAddr,
++        if ((clntSock = accept(servSock, (struct sockaddr *) &clntAddr,
+                                &clntLen)) < 0)
+             die("accept() failed");
+ 
+         /* clntSock is connected to a client! */
+ 
+-        printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
++        printf("Handling client %s\n", inet_ntoa(clntAddr.sin_addr));
+ 
+         HandleTCPClient(clntSock, argv[1]);
+     }
+-- 
+1.7.9.5
+
+
+From b27c1b58f0adf7cb2d269fc24541426374f60f98 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Sat, 8 Nov 2014 17:52:21 -0500
+Subject: [PATCH 5/8] Handled closing files on errors
+
+---
+ part2/http-client.c |   37 ++++++++++++++++++++++++++++++++-----
+ 1 file changed, 32 insertions(+), 5 deletions(-)
+
+diff --git a/part2/http-client.c b/part2/http-client.c
+index 26bb0c6..c0384fa 100644
+--- a/part2/http-client.c
++++ b/part2/http-client.c
+@@ -46,7 +46,7 @@ int main(int argc, char **argv)
+     // get server ip from server name (argv[1])
+     host = argv[1];
+     if ((he = gethostbyname(host)) == NULL) {
+-        die("gethostbyname failed");
++        die("gethostbyname() failed");
+     }
+     serverIP = inet_ntoa(*(struct in_addr *)he->h_addr);
+     
+@@ -71,7 +71,11 @@ int main(int argc, char **argv)
+         die("connect() failed");
+ 
+     /* Send request to the server */
+-    sprintf(buffer, "GET %s HTTP/1.0\r\nHost: %s:%s\r\n\r\n", filePath, host, port);
++    if (sprintf(buffer, "GET %s HTTP/1.0\r\nHost: %s:%s\r\n\r\n", filePath, host, port) == -1)
++    {
++        fprintf(stderr, "sprintf() error\n");
++        exit(1);
++    }
+     if (send(sock, buffer, strlen(buffer), 0) != strlen(buffer))
+         die("send() failed");
+ 
+@@ -84,15 +88,22 @@ int main(int argc, char **argv)
+     {   
+         // check for reading or connection errors
+         if (ferror(fpSock))
++        {
++            fclose(fpSock);
+             die("reading error");
++        }
+         else 
++        {
++            fclose(fpSock);
+             die("connection closed prematurely");
++        }
+     }
+     
+     if (strstr(buffer, "200") == NULL)
+     {   
+         // request failed; print first line and exit
+         fprintf(stderr, "%s", buffer);
++        fclose(fpSock);
+         exit(1);
+     }    
+ 
+@@ -102,7 +113,11 @@ int main(int argc, char **argv)
+         if (fgets(buffer, sizeof(buffer), fpSock) == NULL)
+         {
+             if (ferror(fpSock))
++            {
++                fclose(fpSock);
+                 die("reading error");
++            }
++            fclose(fpSock);
+             die("connection error");
+         }
+         if (!strcmp(buffer, "\r\n"))
+@@ -111,23 +126,35 @@ int main(int argc, char **argv)
+     
+     // open file to write to
+     if ((fileName = strrchr(filePath, '/')) == NULL)
+-        die("file path error");
++    {
++        fclose(fpSock);
++        fprintf(stderr, "file path error");
++        exit(1);
++    }
+     fileName++;
+     if ((fpHTML = fopen(fileName, "wb")) == NULL)
++    {
++        fclose(fpSock);
+         die("fopen() failed");
+-    
++    }
++
+     // write everything after blank line to fpHTML
+     while((n = fread(buffer, 1,  sizeof(buffer), fpSock)) > 0)
+     {
+         if (fwrite(buffer, 1, n, fpHTML) != n)
+         {
++            fclose(fpHTML);
++            fclose(fpSock);
+             die("fwrite() failed");
+         }
+     }
+     if(ferror(fpSock))
+     {
+-        die("fread failed");
++        fclose(fpHTML);
++        fclose(fpSock);
++        die("fread() failed");
+     }
++
+     // close file and socket
+     fclose(fpHTML);
+     fclose(fpSock);
+-- 
+1.7.9.5
+
+
+From 870265eec157cc8b5afb38d066135cf314d0afab Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Sat, 8 Nov 2014 19:45:12 -0500
+Subject: [PATCH 6/8] Added README.txt, slight changes to mdb-lookup-server.c
+
+---
+ README.txt                |   69 +++++++++++++++++++++++++++++++++++++++++++++
+ part1/mdb-lookup-server.c |   19 +++++++------
+ 2 files changed, 79 insertions(+), 9 deletions(-)
+ create mode 100644 README.txt
+
+diff --git a/README.txt b/README.txt
+new file mode 100644
+index 0000000..08e6e8c
+--- /dev/null
++++ b/README.txt
+@@ -0,0 +1,69 @@
++/////////////////////////////////////////////////////////////////////////////////////////////////////////
++//                                                                                                     //
++// Alisa Krivokapic (ak3533)                                                                           //
++// CS 3157 Lab 6                                                                                       //
++// November 8, 2014                                                                                    //
++//                                                                                                     //
++/////////////////////////////////////////////////////////////////////////////////////////////////////////
++
++//
++//  Part1: mdb-lookup-server using sockets API: works as expected
++//
++    * Write a program that displays all the records containing the search string entered by a user
++      on the client side. All the records will be displayed if the client presses <ENTER>.
++      The search criteria will use up to the first 5 characters from the search string entered.
++      The program keeps running, allowing for another search string to be entered. The user on the
++      client side can can terminate it by pressing <Ctrl-D>. The server communicates with the client
++      via a socket. The database name and the port number are specified as command line arguments.
++      The server handles only one client at a time.
++
++//
++//  Solution details:
++//
++    * configuring the server socket:
++      - the socket socket() API function is used to create the TCP socket that uses IP 
++      - the sockaddr_in structure is set up with the information about the server itself, 
++        and INADDR_ANY constant is used to enable receiving client request on any IP address
++        the server supplies. The port is specifed by second command line argument.
++                      
++    * binding and listening:
++      - a client application connects to a server's IP address and port, while a server
++        binds to its own address and port using the bind() socket API function. When the
++        server socket is bound, it listens for incoming connections on the socket by calling
++        the listen() socket API function.
++                      
++    * accepting and handling a client:
++      - the accept() socket API function extracts the first connection in the queue of pending
++        connections and creates a new socket to handle that client while the original socket 
++        remains open and can accept more connections. 
++                      
++    * handling a client:
++      - every time a client gets accepted, the code for mdb-lookup is run: open database,
++        read all the records into memory, run the lookup loop, clean up resources when the
++        client is done. After this, the server is ready to handle next client.
++                      
++    * fdopen() was used to associate the stream pointer with the socket and return it to
++      be passed to fgets() function. The fclose() is then used to close the socket.
++                    
++    * send() socket API function is used to send response records to the client
++      - the last line sent is a blank line to mark the end of a search result
++                    
++    * signal() API function is called with SIG_IGN specified as the second argument so
++      we don't terminate when we call send() on a disconnected socket
++ 
++//
++//  Part2: Web page downloader http-client
++//
++    * The program simulates the "wget" command line tool that can be used to download
++      a specified web page and save it in the current directory; it should overwrite
++      an existing file.
++    * The host, port number, and file path are specifed as command line arguments.
++
++//
++//  Solution details:
++//
++    * the program opens a socket connection to the host and specified port number
++    * the HTTP GET request with specific format is sent to the server
++    * the client receives the requested file content if the request was successful
++    * the server terminates the socket connection when it is done sending the file
++    * fread()/fwrite() functions were used to read/write to the binary file
+diff --git a/part1/mdb-lookup-server.c b/part1/mdb-lookup-server.c
+index 84ca6b8..fc6b2cd 100644
+--- a/part1/mdb-lookup-server.c
++++ b/part1/mdb-lookup-server.c
+@@ -21,7 +21,7 @@
+ 
+ int loadmdb(FILE *fp, struct List *dest) 
+ {
+-    /* read all records into memory */
++    /* Read all records into memory */
+ 
+     struct MdbRec r;
+     struct Node *node = NULL;
+@@ -44,7 +44,7 @@ int loadmdb(FILE *fp, struct List *dest)
+         count++;
+     }   
+ 
+-    // see if fread() produced error
++    /* See if fread() produced error */
+     if (ferror(fp)) 
+         return -1; 
+ 
+@@ -53,7 +53,7 @@ int loadmdb(FILE *fp, struct List *dest)
+ 
+ void freemdb(struct List *list) 
+ {
+-    // free all the records
++    /* Free all the records */
+     traverseList(list, &free);
+     removeAllNodes(list);
+ }
+@@ -75,12 +75,12 @@ void HandleTCPClient(int clntSocket, char *db_name)
+     char line[1000];
+     char key[KeyMax + 1];
+ 
+-    /* open database file (db_name) */
++    /* Open database file (db_name) */
+     fp = fopen(db_name, "rb");
+     if (fp == NULL) 
+         die(db_name);
+ 
+-    /* read all records into memory */
++    /* Read all records into memory */
+     initList(&list);
+ 
+     loaded = loadmdb(fp, &list);
+@@ -89,7 +89,7 @@ void HandleTCPClient(int clntSocket, char *db_name)
+ 
+     fclose(fp);
+ 
+-    /* lookup loop */
++    /* Lookup loop */
+     input = fdopen(clntSocket, "r");
+ 
+     while (fgets(line, sizeof(line), input) != NULL) {
+@@ -123,13 +123,14 @@ void HandleTCPClient(int clntSocket, char *db_name)
+             node = node->next;
+             recNo++;
+         }
+-        buffer[0] = '\n';
++        // send empty line
++        buffer[0] = '\n'; 
+         buffer[1] = '\0';
+         if (send(clntSocket, buffer, 1, 0) != 1)
+             perror("send() failed");
+     }
+ 
+-    freemdb(&list);       /* free mdb */
++    freemdb(&list);       /* Free mdb */
+     close(clntSocket);    /* Close client socket */
+ }
+ 
+@@ -148,7 +149,7 @@ int main(int argc, char **argv)
+     if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) 
+         die("signal() failed");
+ 
+-    /* user must specify exactly 2 command line arguments */
++    /* User must specify exactly 2 command line arguments */
+     if (argc != 3) {
+         fprintf(stderr, "%s\n", "usage: mdb-lookup-server <database_file> <port_number>");
+         exit(1);
+-- 
+1.7.9.5
+
+
+From 08d7c6dad7b571b407603160b394ffbb3dc0da26 Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Sat, 8 Nov 2014 20:09:17 -0500
+Subject: [PATCH 7/8] changed the way HandleTCPClient sends a blank line at
+ the end
+
+---
+ part1/mdb-lookup-server.c |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/part1/mdb-lookup-server.c b/part1/mdb-lookup-server.c
+index fc6b2cd..a7929bd 100644
+--- a/part1/mdb-lookup-server.c
++++ b/part1/mdb-lookup-server.c
+@@ -72,7 +72,7 @@ void HandleTCPClient(int clntSocket, char *db_name)
+     struct List list;
+     FILE *input;     
+     int loaded;
+-    char line[1000];
++    char line[SIZE];
+     char key[KeyMax + 1];
+ 
+     /* Open database file (db_name) */
+@@ -124,9 +124,8 @@ void HandleTCPClient(int clntSocket, char *db_name)
+             recNo++;
+         }
+         // send empty line
+-        buffer[0] = '\n'; 
+-        buffer[1] = '\0';
+-        if (send(clntSocket, buffer, 1, 0) != 1)
++        len = sprintf(buffer, "\n");
++        if (send(clntSocket, buffer, len, 0) != len)
+             perror("send() failed");
+     }
+ 
+-- 
+1.7.9.5
+
+
+From 51b295b7362d679b922eda5462b563ccf7f0b6ad Mon Sep 17 00:00:00 2001
+From: Alisa Krivokapic <ak3533@columbia.edu>
+Date: Sat, 8 Nov 2014 21:36:42 -0500
+Subject: [PATCH 8/8] Fixed memory leak
+
+---
+ part1/mdb-lookup-server.c |   18 +++++++++++++-----
+ 1 file changed, 13 insertions(+), 5 deletions(-)
+
+diff --git a/part1/mdb-lookup-server.c b/part1/mdb-lookup-server.c
+index a7929bd..55203ac 100644
+--- a/part1/mdb-lookup-server.c
++++ b/part1/mdb-lookup-server.c
+@@ -85,12 +85,15 @@ void HandleTCPClient(int clntSocket, char *db_name)
+ 
+     loaded = loadmdb(fp, &list);
+     if (loaded < 0)
+-        die("loadmdb");
+-
++    {
++        fclose(fp);
++        die("loadmdb() failed");
++    }
+     fclose(fp);
+ 
+     /* Lookup loop */
+-    input = fdopen(clntSocket, "r");
++    if ((input = fdopen(clntSocket, "r")) == NULL)
++        die("fdopen() failed");
+ 
+     while (fgets(line, sizeof(line), input) != NULL) {
+ 
+@@ -130,7 +133,7 @@ void HandleTCPClient(int clntSocket, char *db_name)
+     }
+ 
+     freemdb(&list);       /* Free mdb */
+-    close(clntSocket);    /* Close client socket */
++    fclose(input);        /* Close client socket */
+ }
+ 
+ int main(int argc, char **argv)
+@@ -154,7 +157,12 @@ int main(int argc, char **argv)
+         exit(1);
+     }
+ 
+-    servPort = atoi(argv[2]);  /* local port */
++    /* Local Port */
++    if ((servPort = atoi(argv[2])) == 0)
++    {
++        fprintf(stderr, "not a valid server port number");
++        exit(1);
++    }
+     
+     /* Create socket for incoming connections */
+     if ((servSock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+-- 
+1.7.9.5
+
